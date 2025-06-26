@@ -95,7 +95,8 @@ impl Camera {
     fn ray_color(r: &Ray, world: &dyn Hittable) -> Color {
         let mut rec = HitRecord::default();
         if world.hit(r, &Interval::new(0.0, rtweekend::INFINITY), &mut rec) {
-            return 0.5 * (rec.normal + Color::new(1.0, 1.0, 1.0));
+            let dirct = vec3::random_on_hemisphere(rec.normal);
+            return 0.5 * Self::ray_color(&Ray::new(rec.p, dirct), world);
         }
 
         let unit_direction = vec3::unit_vector(r.direction());

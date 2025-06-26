@@ -2,7 +2,6 @@ use crate::interval::Interval;
 use crate::ray::Ray;
 use crate::vec3;
 use crate::vec3::{Point3, Vec3};
-// pub mod vec3;
 // 存储射线命中物体时的记录信息
 #[derive(Debug, Clone, Copy, Default)]
 pub struct HitRecord {
