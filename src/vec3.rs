@@ -46,9 +46,22 @@ impl Vec3 {
         let s = 1e-8;
         self.x.abs() < s && self.y.abs() < s && self.z.abs() < s
     }
+
+    pub fn random_in_unit_disk() -> Vec3 {
+        loop {
+            let p = Vec3::new(
+                rtweekend::random_double_range(-1.0, 1.0),
+                rtweekend::random_double_range(-1.0, 1.0),
+                0.0,
+            );
+            if p.length_squared() < 1.0 {
+                return p;
+            }
+        }
+    }
 }
 
-// 运算符重载 ============================================
+// 运算符重载
 
 // 负号 (-v)
 impl Neg for Vec3 {
@@ -194,6 +207,7 @@ pub fn random_double_range(min: f64, max: f64) -> Vec3 {
     )
 }
 
+//在单位球内生成随机点（用于漫反射）
 pub fn random_in_unit_sphere() -> Vec3 {
     loop {
         let p = random_double_range(-1.0, 1.0);
@@ -207,6 +221,7 @@ pub fn random_unit_vector() -> Vec3 {
     unit_vector(random_in_unit_sphere())
 }
 
+// 在法线方向的半球面上生成随机向量（用于Lambertian反射)
 pub fn random_on_hemisphere(normal: Vec3) -> Vec3 {
     let on_unit_sphere = random_unit_vector();
     if dot(on_unit_sphere, normal) > 0.0 {

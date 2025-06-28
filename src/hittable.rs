@@ -22,7 +22,7 @@ pub trait Hittable {
 
 impl HitRecord {
     pub fn set_face_normal(&mut self, r: &Ray, outward_normal: Vec3) {
-        //assume outward_normal has unit length
+        // assume outward_normal has unit length
         // 确保法线始终指向射线的入射方向的反方向
         self.front_face = vec3::dot(r.direction(), outward_normal) < 0.0;
         if self.front_face {

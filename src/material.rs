@@ -14,7 +14,7 @@ pub trait Material {
         scattered: &mut Ray,
     ) -> bool;
 }
-// Lambertian
+// Lambertian 漫反射材质
 #[derive(Clone, Copy, Default)]
 pub struct Lambertian {
     pub albedo: Color,
@@ -25,14 +25,14 @@ impl Lambertian {
         Self { albedo: a }
     }
 }
-
+//
 impl Material for Lambertian {
     fn scatter(
         &self,
         r_in: &Ray,
         rec: &HitRecord,
-        attenuation: &mut Color, //衰减
-        scattered: &mut Ray,     //散射光线
+        attenuation: &mut Color, //光线衰减
+        scattered: &mut Ray,     //散射后的光线
     ) -> bool {
         let mut scatter_direct = rec.normal + vec3::random_unit_vector();
         if scatter_direct.near_zero() {
@@ -43,7 +43,7 @@ impl Material for Lambertian {
         true
     }
 }
-// Metal
+// Metal  （镜面反射）
 pub struct Metal {
     pub albedo: Color,
     pub fuzz: f64,
@@ -73,7 +73,7 @@ impl Material for Metal {
     }
 }
 
-// Dielectric
+// Dielectric  透明电介质材质（折射）
 #[derive(Debug, Clone, Default)]
 pub struct Dielectric {
     pub ir: f64, // 折射指数 (Index of Refraction)
