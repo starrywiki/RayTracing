@@ -16,6 +16,8 @@ pub struct Camera {
     pub image_width: i32,  // Rendered image width in pixel count
     pub image_height: i32, // Rendered image height
     pub samples_per_pixel: usize,
+    pub max_depth: i32,
+    pub vfov: f64,
     center: Point3,      // Camera center
     pixel00_loc: Point3, // Location of pixel 0, 0
     pixel_delta_u: Vec3, // Offset to pixel to the right
@@ -28,6 +30,8 @@ impl Default for Camera {
             image_width: 100,
             image_height: 0,
             samples_per_pixel: 10,
+            max_depth: 10,
+            vfov: 90.0,
             center: Point3::default(),
             pixel00_loc: Point3::default(),
             pixel_delta_u: Vec3::default(),
@@ -46,11 +50,11 @@ impl Camera {
         };
 
         let mut world = HittableList::default();
-        world.add(Arc::new(Sphere::new(Point3::new(0.0, 0.0, -1.0), 0.5)));
-        world.add(Arc::new(Sphere::new(Point3::new(0.0, -100.5, -1.0), 100.0)));
         // 视口
         let focal_length = 1.0; // 相机到视口的距离（即“焦距”）
-        let viewport_height = 2.0;
+        let theta = rtweekend::degrees_to_radians(self.vfov);
+        let h = (theta / 2.0).tan();
+        let viewport_height = 2.0 * h * focal_length;
         let viewport_width = viewport_height * (self.image_width as f64 / self.image_height as f64);
         self.center = Point3::zero();
 
@@ -81,7 +85,7 @@ impl Camera {
                 let mut pixel_color = Color::default();
                 for _ in 0..self.samples_per_pixel {
                     let r = self.get_ray(i, j);
-                    pixel_color += Camera::ray_color(&r, world);
+                    pixel_color += Camera::ray_color(&r, self.max_depth, world);
                 }
                 pixel_color
                     .write_color(&mut stdout.lock(), self.samples_per_pixel)
@@ -92,11 +96,18 @@ impl Camera {
         eprintln!("\nDone.");
     }
 
-    fn ray_color(r: &Ray, world: &dyn Hittable) -> Color {
+    fn ray_color(r: &Ray, depth: i32, world: &dyn Hittable) -> Color {
         let mut rec = HitRecord::default();
-        if world.hit(r, &Interval::new(0.0, rtweekend::INFINITY), &mut rec) {
-            let dirct = vec3::random_on_hemisphere(rec.normal);
-            return 0.5 * Self::ray_color(&Ray::new(rec.p, dirct), world);
+        if depth <= 0 {
+            return Color::new(0.0, 0.0, 0.0);
+        }
+        if world.hit(r, &Interval::new(0.001, rtweekend::INFINITY), &mut rec) {
+            let mut scattered = Ray::default();
+            let mut attenuation = Color::default();
+            if rec.mat.scatter(r, &rec, &mut attenuation, &mut scattered) {
+                return attenuation * Self::ray_color(&scattered, depth - 1, world);
+            }
+            return Color::new(0.0, 0.0, 0.0);
         }
 
         let unit_direction = vec3::unit_vector(r.direction());

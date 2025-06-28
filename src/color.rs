@@ -13,6 +13,10 @@ impl Color {
         let r = scale * self.x;
         let g = scale * self.y;
         let b = scale * self.z;
+
+        let r = linear_to_gamma(r);
+        let g = linear_to_gamma(g);
+        let b = linear_to_gamma(b);
         write!(
             out,
             "{} {} {}\n",
@@ -22,4 +26,11 @@ impl Color {
         )
     }
 }
-// samples_per_pixel: usize,
+
+pub fn linear_to_gamma(linear_component: f64) -> f64 {
+    if linear_component > 0.0 {
+        return linear_component.sqrt();
+    } else {
+        return 0.0;
+    }
+}
