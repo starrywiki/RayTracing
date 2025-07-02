@@ -1,4 +1,5 @@
 //hittable_list.rs
+use crate::aabb::Aabb;
 use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
 use crate::ray::Ray;
@@ -6,13 +7,15 @@ use std::sync::Arc;
 /// 可击中对象列表
 #[derive(Default)]
 pub struct HittableList {
-    pub objects: Vec<Arc<dyn Hittable>>,
+    pub objects: Vec<Arc<dyn Hittable + Send + Sync>>,
+    pub bbox: Aabb,
 }
 
 impl HittableList {
-    pub fn new(object: Arc<dyn Hittable>) -> Self {
+    pub fn new(object: Arc<dyn Hittable + Send + Sync>) -> Self {
         Self {
             objects: vec![object],
+            bbox: Aabb::empty(),
         }
     }
 
@@ -21,8 +24,9 @@ impl HittableList {
     }
 
     // 添加可击中对象
-    pub fn add(&mut self, object: Arc<dyn Hittable>) {
-        self.objects.push(object);
+    pub fn add(&mut self, object: Arc<dyn Hittable + Send + Sync>) {
+        self.objects.push(object.clone());
+        self.bbox = Aabb::new_boxes(self.bbox, object.bounding_box());
     }
 }
 
@@ -41,5 +45,8 @@ impl Hittable for HittableList {
         }
 
         hit_anything
+    }
+    fn bounding_box(&self) -> Aabb {
+        self.bbox
     }
 }

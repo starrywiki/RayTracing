@@ -11,7 +11,12 @@ impl Interval {
     pub fn new(min: f64, max: f64) -> Self {
         Self { min, max }
     }
-
+    pub fn union(a: Interval, b: Interval) -> Self {
+        Self {
+            min: a.min.min(b.min),
+            max: a.max.max(b.max),
+        }
+    }
     /// Returns the size of the interval
     pub fn size(&self) -> f64 {
         self.max - self.min
@@ -47,4 +52,12 @@ impl Interval {
         min: -rtweekend::INFINITY,
         max: rtweekend::INFINITY,
     };
+
+    pub fn expand(&self, delta: f64) -> Self {
+        let padding = delta / 2.0;
+        Self {
+            min: self.min - padding,
+            max: self.max + padding,
+        }
+    }
 }

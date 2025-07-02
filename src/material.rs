@@ -3,9 +3,14 @@ use crate::color::Color;
 use crate::hittable::HitRecord;
 use crate::ray::Ray;
 use crate::rtweekend;
+use crate::texture::{SolidColor, Texture};
 use crate::vec3;
 use crate::vec3::Vec3;
-pub trait Material {
+use std::sync::Arc;
+unsafe impl Send for Lambertian {}
+unsafe impl Sync for Lambertian {}
+
+pub trait Material: Send + Sync {
     fn scatter(
         &self,
         r_in: &Ray,
@@ -14,18 +19,32 @@ pub trait Material {
         scattered: &mut Ray,
     ) -> bool;
 }
+
+impl Default for Lambertian {
+    fn default() -> Self {
+        Self {
+            tex: Arc::new(SolidColor::new(Color::new(0.0, 0.0, 0.0))), // 默认黑色
+        }
+    }
+}
 // Lambertian 漫反射材质
-#[derive(Clone, Copy, Default)]
+#[derive(Clone)]
 pub struct Lambertian {
-    pub albedo: Color,
+    pub tex: Arc<dyn Texture + Send + Sync>,
 }
 
 impl Lambertian {
-    pub fn new(a: Color) -> Self {
-        Self { albedo: a }
+    pub fn new(c: Color) -> Self {
+        Self {
+            tex: Arc::new(crate::texture::SolidColor::new(c)),
+        }
+    }
+
+    pub fn new_from_texture(t: Arc<dyn Texture + Send + Sync>) -> Self {
+        Self { tex: t }
     }
 }
-//
+
 impl Material for Lambertian {
     fn scatter(
         &self,
@@ -38,8 +57,8 @@ impl Material for Lambertian {
         if scatter_direct.near_zero() {
             scatter_direct = rec.normal;
         }
-        *scattered = Ray::new(rec.p, scatter_direct);
-        *attenuation = self.albedo;
+        *scattered = Ray::new(rec.p, scatter_direct, r_in.time());
+        *attenuation = self.tex.value(rec.u, rec.v, &rec.p);
         true
     }
 }
@@ -66,8 +85,9 @@ impl Material for Metal {
         attenuation: &mut Color, //衰减
         scattered: &mut Ray,     //散射光线
     ) -> bool {
-        let reflected = vec3::reflect(vec3::unit_vector(r_in.direction()), rec.normal);
-        *scattered = Ray::new(rec.p, reflected + self.fuzz * vec3::random_in_unit_sphere());
+        let mut reflected = vec3::reflect(r_in.direction(), rec.normal);
+        reflected = Vec3::unit_vector(&reflected) + self.fuzz * vec3::random_in_unit_sphere();
+        *scattered = Ray::new(rec.p, reflected, r_in.time());
         *attenuation = self.albedo;
         vec3::dot(scattered.direction(), rec.normal) > 0.0
     }
@@ -119,7 +139,7 @@ impl Material for Dielectric {
         } else {
             vec3::refract(unit_direction, rec.normal, refraction_ratio)
         };
-        *scattered = Ray::new(rec.p, dirc);
+        *scattered = Ray::new(rec.p, dirc, r_in.time());
         true
     }
 }

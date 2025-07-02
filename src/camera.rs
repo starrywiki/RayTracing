@@ -5,12 +5,20 @@ use crate::hittable_list::HittableList;
 use crate::interval::Interval;
 use crate::ray::Ray;
 use crate::rtweekend;
-
 use crate::sphere::Sphere;
 use crate::vec3;
 use crate::vec3::{Point3, Vec3};
-use std::sync::Arc;
+use crossbeam::thread;
+use std::io::{stdout, Write};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Condvar;
+use std::sync::{Arc, Mutex};
+// 多线程参数
+const HEIGHT_PARTITION: usize = 20;
+const WIDTH_PARTITION: usize = 20;
+const THREAD_LIMIT: usize = 16;
 
+#[derive(Clone)]
 pub struct Camera {
     pub aspect_ratio: f64,        // Ratio of image
     pub image_width: i32,         // Rendered image width
@@ -73,10 +81,10 @@ impl Camera {
             self.image_height
         };
 
-        let mut world = HittableList::default();
+        let world = HittableList::default();
 
         // 相机到视口的距离（焦距）
-        let focal_length = (self.lookfrom - self.lookat).length();
+        // let focal_length = (self.lookfrom - self.lookat).length();
 
         let theta = rtweekend::degrees_to_radians(self.vfov);
         let h = (theta / 2.0).tan();
@@ -108,25 +116,129 @@ impl Camera {
 
     pub fn render(&mut self, world: &dyn Hittable) {
         self.initialize();
+        let progress = Arc::new(AtomicUsize::new(0));
+        let total_lines = self.image_height as usize;
 
+        // 输出 PPM 头部
         println!("P3\n{} {}\n255", self.image_width, self.image_height);
-        let stdout = std::io::stdout();
+        let stdout = stdout();
 
+        // 初始化图像缓冲区
+        let mut image: Vec<Vec<Color>> =
+            vec![vec![Color::default(); self.image_width as usize]; self.image_height as usize];
+        let image_mutex = Arc::new(Mutex::new(&mut image));
+
+        // 包装 Camera 和 world
+        let camera = Arc::new(self.clone());
+        let world = Arc::new(world as &(dyn Hittable + Send + Sync));
+
+        // 线程计数和条件变量
+        let thread_count = Arc::new(AtomicUsize::new(0));
+        let thread_number_controller = Arc::new(Condvar::new());
+
+        // 计算分块大小
+        let chunk_height = (self.image_height as usize + HEIGHT_PARTITION - 1) / HEIGHT_PARTITION;
+        let chunk_width = (self.image_width as usize + WIDTH_PARTITION - 1) / WIDTH_PARTITION;
+
+        thread::scope(|thd_spawner| {
+            for j in 0..HEIGHT_PARTITION {
+                for i in 0..WIDTH_PARTITION {
+                    // 等待线程数量低于限制
+                    let lock_for_condv = Mutex::new(false);
+                    while thread_count.load(Ordering::SeqCst) >= THREAD_LIMIT {
+                        thread_number_controller
+                            .wait(lock_for_condv.lock().unwrap())
+                            .unwrap();
+                    }
+
+                    // 克隆 Arc
+                    let camera = Arc::clone(&camera);
+                    let world = Arc::clone(&world);
+                    let image_mutex = Arc::clone(&image_mutex);
+                    let thread_count = Arc::clone(&thread_count);
+                    let thread_number_controller = Arc::clone(&thread_number_controller);
+
+                    // 增加线程计数
+                    thread_count.fetch_add(1, Ordering::SeqCst);
+                    let progress = Arc::clone(&progress);
+                    // 启动子线程
+                    thd_spawner.spawn(move |_| {
+                        camera.render_sub(
+                            *world,
+                            &image_mutex,
+                            i * chunk_width,
+                            (i + 1) * chunk_width,
+                            j * chunk_height,
+                            (j + 1) * chunk_height,
+                            total_lines,
+                            &progress,
+                        );
+                        // 线程结束，减少计数并通知
+                        thread_count.fetch_sub(1, Ordering::SeqCst);
+                        thread_number_controller.notify_one();
+                    });
+                }
+            }
+        })
+        .unwrap();
+
+        // 输出图像
         for j in 0..self.image_height {
             eprintln!("\rScanlines remaining: {}", self.image_height - j);
             for i in 0..self.image_width {
-                let mut pixel_color = Color::default();
-                for _ in 0..self.samples_per_pixel {
-                    let r = self.get_ray(i, j);
-                    pixel_color += Camera::ray_color(&r, self.max_depth, world);
-                }
-                pixel_color
+                image[j as usize][i as usize]
                     .write_color(&mut stdout.lock(), self.samples_per_pixel)
                     .unwrap();
             }
         }
 
         eprintln!("\nDone.");
+    }
+
+    fn render_sub(
+        &self,
+        world: &dyn Hittable,
+        image_mutex: &Arc<Mutex<&mut Vec<Vec<Color>>>>,
+        x_min: usize,
+        x_max: usize,
+        y_min: usize,
+        y_max: usize,
+        total_lines: usize,
+        progress: &Arc<AtomicUsize>,
+        // samples_per_pixel: usize,
+    ) {
+        // 限制边界
+        let x_max = x_max.min(self.image_width as usize);
+        let y_max = y_max.min(self.image_height as usize);
+
+        // 临时缓冲区
+        let mut buffer = vec![vec![Color::default(); x_max - x_min]; y_max - y_min];
+
+        // 渲染子区域
+        for j in y_min..y_max {
+            for i in x_min..x_max {
+                let mut pixel_color = Color::default();
+                for _ in 0..self.samples_per_pixel {
+                    let r = self.get_ray(i as i32, j as i32);
+                    pixel_color += Self::ray_color(&r, self.max_depth, world);
+                }
+                buffer[j - y_min][i - x_min] = pixel_color;
+            }
+        }
+        // 实时进度更新（每渲染完一行调用）
+        let done = progress.fetch_add(1, Ordering::SeqCst) + 1;
+        eprint!(
+            "\rScanlines remaining: {}",
+            total_lines.saturating_sub(done)
+        );
+        std::io::stderr().flush().unwrap();
+        // 将缓冲区写入图像
+        let mut image = image_mutex.lock().unwrap();
+        for j in y_min..y_max {
+            for i in x_min..x_max {
+                image[j][i] = buffer[j - y_min][i - x_min];
+            }
+        }
     }
 
     fn ray_color(r: &Ray, depth: i32, world: &dyn Hittable) -> Color {
@@ -171,6 +283,7 @@ impl Camera {
             }
         };
         let ray_direc = pixel_sample - ray_origin;
-        Ray::new(ray_origin, ray_direc)
+        let ray_tm = rtweekend::random_double();
+        Ray::new(ray_origin, ray_direc, ray_tm)
     }
 }

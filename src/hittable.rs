@@ -1,3 +1,5 @@
+use crate::aabb;
+use crate::aabb::Aabb;
 use crate::interval::Interval;
 use crate::material::{Lambertian, Material};
 use crate::ray::Ray;
@@ -12,12 +14,15 @@ pub struct HitRecord {
     pub t: f64,       // 射线参数 t
     pub front_face: bool,
     pub mat: Arc<dyn Material>,
+    pub u: f64,
+    pub v: f64,
 }
 
 // 可命中物体的统一接口
-pub trait Hittable {
+pub trait Hittable: Send + Sync {
     // 判断射线是否命中物体，若命中则填充 HitRecord
     fn hit(&self, r: &Ray, ray_t: &Interval, hit_record: &mut HitRecord) -> bool;
+    fn bounding_box(&self) -> Aabb;
 }
 
 impl HitRecord {
@@ -40,6 +45,8 @@ impl Default for HitRecord {
             mat: Arc::new(Lambertian::default()), // 或某个默认材质
             t: 0.0,
             front_face: false,
+            u: 0.0,
+            v: 0.0,
         }
     }
 }
