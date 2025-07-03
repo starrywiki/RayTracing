@@ -5,7 +5,7 @@ use crate::ray::Ray;
 use crate::rtweekend;
 use crate::texture::{SolidColor, Texture};
 use crate::vec3;
-use crate::vec3::Vec3;
+use crate::vec3::{Point3, Vec3};
 use std::sync::Arc;
 unsafe impl Send for Lambertian {}
 unsafe impl Sync for Lambertian {}
@@ -18,6 +18,10 @@ pub trait Material: Send + Sync {
         attenuation: &mut Color,
         scattered: &mut Ray,
     ) -> bool;
+
+    fn emitted(&self, u: f64, v: f64, p: &Point3) -> Color {
+        Color::default()
+    }
 }
 
 impl Default for Lambertian {
@@ -141,5 +145,36 @@ impl Material for Dielectric {
         };
         *scattered = Ray::new(rec.p, dirc, r_in.time());
         true
+    }
+}
+
+pub struct DiffuseLight {
+    emit: Arc<dyn Texture>,
+}
+
+impl DiffuseLight {
+    pub fn new_from_texture(texture: Arc<dyn Texture>) -> Self {
+        Self { emit: texture }
+    }
+
+    pub fn new_from_color(c: Color) -> Self {
+        Self {
+            emit: Arc::new(SolidColor::new(c)),
+        }
+    }
+}
+
+impl Material for DiffuseLight {
+    fn scatter(
+        &self,
+        r_in: &Ray,
+        rec: &HitRecord,
+        attenuation: &mut Color,
+        scattered: &mut Ray,
+    ) -> bool {
+        false // 不进行散射
+    }
+    fn emitted(&self, u: f64, v: f64, p: &Point3) -> Color {
+        self.emit.value(u, v, p)
     }
 }

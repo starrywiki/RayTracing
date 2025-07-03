@@ -3,6 +3,8 @@ use crate::color::Color;
 use crate::hittable::{HitRecord, Hittable};
 use crate::hittable_list::HittableList;
 use crate::interval::Interval;
+use crate::material::Material;
+use crate::ray;
 use crate::ray::Ray;
 use crate::rtweekend;
 use crate::sphere::Sphere;
@@ -13,6 +15,7 @@ use std::io::{stdout, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Condvar;
 use std::sync::{Arc, Mutex};
+
 // 多线程参数
 const HEIGHT_PARTITION: usize = 20;
 const WIDTH_PARTITION: usize = 20;
@@ -25,7 +28,8 @@ pub struct Camera {
     pub image_height: i32,        // Rendered image height
     pub samples_per_pixel: usize, // 像素采样数
     // 视角参数
-    pub max_depth: i32,   // 光线最大反弹深度
+    pub max_depth: i32, // 光线最大反弹深度
+    pub background: Color,
     pub vfov: f64,        // 垂直视野角度（degrees）
     pub lookfrom: Point3, // 相机位置
     pub lookat: Point3,   // 观察目标点
@@ -54,6 +58,7 @@ impl Default for Camera {
             image_height: 0,
             samples_per_pixel: 10,
             max_depth: 10,
+            background: Color::default(),
             vfov: 90.0,
             defocus_angle: 0.0,
             focus_dist: 10.0,
@@ -220,7 +225,7 @@ impl Camera {
                 let mut pixel_color = Color::default();
                 for _ in 0..self.samples_per_pixel {
                     let r = self.get_ray(i as i32, j as i32);
-                    pixel_color += Self::ray_color(&r, self.max_depth, world);
+                    pixel_color += Self::ray_color(self, &r, self.max_depth, world);
                 }
                 buffer[j - y_min][i - x_min] = pixel_color;
             }
@@ -241,23 +246,23 @@ impl Camera {
         }
     }
 
-    fn ray_color(r: &Ray, depth: i32, world: &dyn Hittable) -> Color {
+    fn ray_color(&self, r: &Ray, depth: i32, world: &dyn Hittable) -> Color {
         let mut rec = HitRecord::default();
         if depth <= 0 {
             return Color::new(0.0, 0.0, 0.0);
         }
-        if world.hit(r, &Interval::new(0.001, rtweekend::INFINITY), &mut rec) {
-            let mut scattered = Ray::default();
-            let mut attenuation = Color::default();
-            if rec.mat.scatter(r, &rec, &mut attenuation, &mut scattered) {
-                return attenuation * Self::ray_color(&scattered, depth - 1, world);
-            }
-            return Color::new(0.0, 0.0, 0.0);
+        if !world.hit(r, &Interval::new(0.001, rtweekend::INFINITY), &mut rec) {
+            return self.background;
         }
 
-        let unit_direction = vec3::unit_vector(r.direction());
-        let a = 0.5 * (unit_direction.y + 1.0);
-        (1.0 - a) * Color::new(1.0, 1.0, 1.0) + a * Color::new(0.5, 0.7, 1.0)
+        let mut scattered = Ray::default();
+        let mut attenuation = Color::default();
+        let color_from_emission = rec.mat.emitted(rec.u, rec.v, &rec.p);
+        if !rec.mat.scatter(r, &rec, &mut attenuation, &mut scattered) {
+            return color_from_emission;
+        }
+        let color_from_scatter = attenuation * self.ray_color(&scattered, depth - 1, world);
+        color_from_emission + color_from_scatter
     }
     /// 在像素区域内随机采样（用于抗锯齿）
     fn pixel_sample_square(&self) -> Vec3 {

@@ -13,7 +13,7 @@ pub struct HitRecord {
     pub normal: Vec3, // 命中点法线（单位向量）
     pub t: f64,       // 射线参数 t
     pub front_face: bool,
-    pub mat: Arc<dyn Material>,
+    pub mat: Arc<dyn Material + Send + Sync>,
     pub u: f64,
     pub v: f64,
 }
@@ -48,5 +48,29 @@ impl Default for HitRecord {
             u: 0.0,
             v: 0.0,
         }
+    }
+}
+pub struct translate {
+    object: Arc<dyn Hittable + Send + Sync>,
+    offset: Vec3,
+}
+impl Translate {
+    pub fn new(object: Arc<dyn Hittable + Send + Sync>, offset: Vec3) -> Self {
+        Self { object, offset }
+    }
+}
+
+impl Hittable for Translate {
+    fn hit(&self, r: &Ray, ray_t: &Interval, rec: &mut HitRecord) -> bool {
+        // 将光线反向偏移（把物体移回来）
+        let moved_r = Ray::new(r.origin() - self.offset, r.direction(), r.time());
+
+        if !self.object.hit(&moved_r, ray_t, rec) {
+            return false;
+        }
+
+        // 将命中点偏移回来
+        rec.p += self.offset;
+        true
     }
 }

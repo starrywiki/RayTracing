@@ -56,7 +56,7 @@ impl BvhNode {
             }
         };
 
-        let bbox = Aabb::new_boxes(left.bounding_box(), right.bounding_box());
+        let bbox = Aabb::new_boxes(&left.bounding_box(), &right.bounding_box());
         Self { left, right, bbox }
     }
 }

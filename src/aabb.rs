@@ -11,6 +11,29 @@ pub struct Aabb {
 }
 
 impl Aabb {
+    pub fn pad(&self) -> Self {
+        let delta = 0.0001;
+        let new_x = if self.x.size() < delta {
+            self.x.expand(delta)
+        } else {
+            self.x.clone()
+        };
+        let new_y = if self.y.size() < delta {
+            self.y.expand(delta)
+        } else {
+            self.y.clone()
+        };
+        let new_z = if self.z.size() < delta {
+            self.z.expand(delta)
+        } else {
+            self.z.clone()
+        };
+        Self {
+            x: new_x,
+            y: new_y,
+            z: new_z,
+        }
+    }
     pub fn empty() -> Self {
         Self {
             x: Interval::new(f64::INFINITY, f64::NEG_INFINITY),
@@ -18,7 +41,7 @@ impl Aabb {
             z: Interval::new(f64::INFINITY, f64::NEG_INFINITY),
         }
     }
-    pub fn new_boxes(box1: Aabb, box2: Aabb) -> Self {
+    pub fn new_boxes(box1: &Aabb, box2: &Aabb) -> Self {
         Self {
             x: Interval::union(box1.x, box2.x),
             y: Interval::union(box1.y, box2.y),

@@ -4,6 +4,7 @@ use crate::hittable::{HitRecord, Hittable};
 use crate::interval::Interval;
 use crate::material::{Lambertian, Material, Metal};
 use crate::ray::Ray;
+use crate::rtweekend;
 use crate::vec3;
 use crate::vec3::Point3;
 use crate::vec3::Vec3;
@@ -12,7 +13,7 @@ use std::sync::Arc;
 pub struct Sphere {
     center1: Point3,
     radius: f64,
-    mat: Arc<dyn Material>,
+    mat: Arc<dyn Material + Send + Sync>,
     is_moving: bool,
     center_vec: Vec3,
     bbox: Aabb,
@@ -53,7 +54,7 @@ impl Sphere {
             mat,
             is_moving: true,
             center_vec: center2 - center1,
-            bbox: Aabb::new_boxes(box1, box2),
+            bbox: Aabb::new_boxes(&box1, &box2),
         }
     }
 
@@ -63,6 +64,14 @@ impl Sphere {
         } else {
             self.center1
         }
+    }
+
+    pub fn get_sphere_uv(p: Point3) -> (f64, f64) {
+        let theta = (-p.y).acos();
+        let phi = (-p.z).atan2(p.x) + rtweekend::PI;
+        let u = phi / (2.0 * rtweekend::PI) as f64;
+        let v = (theta / rtweekend::PI) as f64;
+        (u, v)
     }
 }
 
@@ -94,6 +103,7 @@ impl Hittable for Sphere {
         rec.p = r.at(rec.t);
         let outward_normal = (rec.p - cur_center) / self.radius;
         rec.set_face_normal(r, outward_normal);
+        (rec.u, rec.v) = Sphere::get_sphere_uv(outward_normal);
         rec.mat = Arc::clone(&self.mat);
         true
     }

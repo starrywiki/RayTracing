@@ -26,7 +26,7 @@ impl HittableList {
     // 添加可击中对象
     pub fn add(&mut self, object: Arc<dyn Hittable + Send + Sync>) {
         self.objects.push(object.clone());
-        self.bbox = Aabb::new_boxes(self.bbox, object.bounding_box());
+        self.bbox = Aabb::new_boxes(&self.bbox, &object.bounding_box());
     }
 }
 

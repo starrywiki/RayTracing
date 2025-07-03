@@ -1,5 +1,7 @@
 //texture.rs
 use crate::color::Color;
+use crate::perlin::Perlin;
+use crate::rtw_image::RtwImage;
 use crate::rtweekend;
 use crate::vec3::Point3;
 use std::sync::Arc;
@@ -66,5 +68,60 @@ impl Texture for CheckerTexture {
         } else {
             self.odd.value(u, v, p)
         }
+    }
+}
+
+pub struct ImageTexture {
+    image: RtwImage,
+}
+
+impl ImageTexture {
+    pub fn new(filename: &str) -> Option<Self> {
+        {
+            RtwImage::new(filename).map(|img| Self { image: img })
+        }
+    }
+}
+impl Texture for ImageTexture {
+    fn value(&self, u: f64, v: f64, p: &Point3) -> Color {
+        if self.image.height <= 0 {
+            return Color::new(0.0, 1.0, 1.0);
+        }
+        let u = u.clamp(0.0, 1.0);
+        let v = 1.0 - v.clamp(0.0, 1.0);
+        let i = (u * self.image.width as f64) as usize;
+        let j = (v * self.image.height as f64) as usize;
+
+        let i = i.min(self.image.width - 1);
+        let j = j.min(self.image.height - 1);
+
+        let pixel = self.image.pixel_data(i as i32, j as i32);
+
+        let color_scale = 1.0 / 255.0;
+        Color::new(
+            color_scale * pixel[0] as f64,
+            color_scale * pixel[1] as f64,
+            color_scale * pixel[2] as f64,
+        )
+    }
+}
+
+pub struct NoiseTexture {
+    noise: Perlin,
+    scale: f64,
+}
+
+impl NoiseTexture {
+    pub fn new(siz: f64) -> Self {
+        Self {
+            noise: Perlin::new(),
+            scale: siz,
+        }
+    }
+}
+
+impl Texture for NoiseTexture {
+    fn value(&self, u: f64, v: f64, p: &Point3) -> Color {
+        Color::new(1.0, 1.0, 1.0) * self.noise.turb(p, 7)
     }
 }
