@@ -2,12 +2,25 @@
 use crate::interval::Interval;
 use crate::ray::Ray;
 use crate::vec3::{Point3, Vec3};
+use std::ops::Add;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Aabb {
     pub x: Interval,
     pub y: Interval,
     pub z: Interval,
+}
+
+impl Add<Vec3> for Aabb {
+    type Output = Aabb;
+
+    fn add(self, offset: Vec3) -> Self::Output {
+        Aabb {
+            x: Interval::new(self.x.min + offset.x, self.x.max + offset.x),
+            y: Interval::new(self.y.min + offset.y, self.y.max + offset.y),
+            z: Interval::new(self.z.min + offset.z, self.z.max + offset.z),
+        }
+    }
 }
 
 impl Aabb {

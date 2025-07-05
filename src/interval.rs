@@ -1,12 +1,18 @@
 // interval.rs
 use crate::rtweekend;
+use std::ops::Add;
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct Interval {
     pub min: f64,
     pub max: f64,
 }
-
+impl Add<f64> for Interval {
+    type Output = Interval;
+    fn add(self, displacement: f64) -> Interval {
+        Interval::new(self.min + displacement, self.max + displacement)
+    }
+}
 impl Interval {
     pub fn new(min: f64, max: f64) -> Self {
         Self { min, max }
