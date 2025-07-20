@@ -1,9 +1,10 @@
 [package]
-name = "RayTracing_1st_week"
+name = "RayTracing"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 rand = "0"
 crossbeam = "0.8"
-image = "0.25"
+image = { version = "0.25", features = ["png", "jpeg"] }
+gltf = "1.1" 

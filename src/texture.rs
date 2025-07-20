@@ -81,6 +81,9 @@ impl ImageTexture {
             RtwImage::new(filename).map(|img| Self { image: img })
         }
     }
+    pub fn from_rtw_image(image: RtwImage) -> Self {
+        Self { image }
+    }
 }
 impl Texture for ImageTexture {
     fn value(&self, u: f64, v: f64, p: &Point3) -> Color {

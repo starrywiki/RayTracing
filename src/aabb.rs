@@ -122,4 +122,11 @@ impl Aabb {
 
         true
     }
+    pub fn min(&self) -> Point3 {
+        Point3::new(self.x.min, self.y.min, self.z.min)
+    }
+
+    pub fn max(&self) -> Point3 {
+        Point3::new(self.x.max, self.y.max, self.z.max)
+    }
 }

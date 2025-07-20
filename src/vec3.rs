@@ -59,6 +59,14 @@ impl Vec3 {
             }
         }
     }
+    pub fn from_slice(s: &[f32]) -> Self {
+        // 假设切片至少有3个元素，gltf 会保证这一点
+        Self {
+            x: s[0] as f64,
+            y: s[1] as f64,
+            z: s[2] as f64,
+        }
+    }
 }
 
 // 运算符重载

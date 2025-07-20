@@ -252,7 +252,11 @@ impl Camera {
             return Color::new(0.0, 0.0, 0.0);
         }
         if !world.hit(r, &Interval::new(0.001, rtweekend::INFINITY), &mut rec) {
-            return self.background;
+            let unit_direction = r.direction().unit_vector();
+            let a = 0.35 + 0.5 * (unit_direction.x + 1.0);
+            let start_color = Color::new(1.0, 1.0, 1.0);
+            let end_color = Color::new(1.0, 0.3, 0.0);
+            return (1.0 - a) * start_color + a * end_color;
         }
 
         let mut scattered = Ray::default();

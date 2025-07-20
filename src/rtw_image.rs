@@ -26,7 +26,7 @@ impl RtwImage {
         None
     }
 
-    fn from_image(img: DynamicImage) -> Self {
+    pub fn from_image(img: DynamicImage) -> Self {
         let img_rgb = img.to_rgb32f();
         let (width, height) = img_rgb.dimensions();
         let mut fdata = Vec::with_capacity((width * height * 3) as usize);

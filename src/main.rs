@@ -7,6 +7,7 @@ pub mod hittable;
 pub mod hittable_list;
 pub mod interval;
 pub mod material;
+pub mod mesh;
 pub mod perlin;
 pub mod quad;
 pub mod ray;
@@ -14,6 +15,7 @@ pub mod rtw_image;
 pub mod rtweekend;
 pub mod sphere;
 pub mod texture;
+pub mod triangle;
 pub mod vec3;
 
 use crate::quad::Quad;
@@ -21,16 +23,19 @@ use bvh::BvhNode;
 use camera::Camera;
 use color::Color;
 use constant_medium::ConstantMedium;
-use hittable::{HitRecord, Hittable, RotateY, Translate};
+use hittable::{HitRecord, Hittable, RotateX, RotateY, RotateZ, Scale, Translate};
 use hittable_list::HittableList;
 use material::{Dielectric, DiffuseLight, Lambertian, Metal};
+use mesh::Mesh;
 use perlin::Perlin;
 use ray::Ray;
 use rtw_image::RtwImage;
 use sphere::Sphere;
 use std::sync::Arc;
 use texture::{CheckerTexture, ImageTexture, NoiseTexture, Texture};
+use triangle::Triangle;
 use vec3::{Point3, Vec3};
+
 fn bouncing_spheres() {
     let mut world = HittableList::default();
     // let mat_ground = Arc::new(Lambertian::new(Color::new(0.5, 0.5, 0.5)));
@@ -614,8 +619,42 @@ fn final_scene(image_width: i32, samples_per_pixel: usize, max_depth: i32) {
     cam.render(&world);
 }
 
+fn Manhattanhenge() {
+    let mut world = HittableList::default();
+
+    let city_model = Arc::new(Mesh::new("assets/source/city.glb"));
+    let city1 = Arc::new(RotateY::new(city_model, 90.0));
+    world.add(city1);
+
+    let sun_model = Arc::new(Mesh::new("assets/source/the_sun.glb"));
+    let _sun_ = Arc::new(Scale::new(sun_model, Vec3::new(13.0, 13.0, 13.0)));
+    let _sun_ = Arc::new(Translate::new(_sun_, Vec3::new(-10.5, 0.0, 100.0)));
+    world.add(_sun_);
+
+    let car_model = Arc::new(Mesh::new("assets/source/car.glb"));
+    let the_car = Arc::new(RotateY::new(car_model, 180.0));
+    let the_car = Arc::new(RotateZ::new(the_car, 90.0));
+    let the_car = Arc::new(Scale::new(the_car, Vec3::new(1.55, 1.55, 1.55)));
+    let the_car = Arc::new(Translate::new(the_car, Vec3::new(-0.85, 2.2, -22.0)));
+    world.add(the_car);
+
+    let mut cam = Camera::default();
+    cam.aspect_ratio = 16.0 / 9.0;
+    cam.image_width = 800;
+    cam.samples_per_pixel = 10000;
+    cam.max_depth = 40;
+    cam.background = Color::new(0.87, 0.968, 0.98);
+
+    cam.vfov = 80.0;
+    cam.lookfrom = Point3::new(-5.3, -0.0, -38.0);
+    cam.lookat = Point3::new(0.0, 0.0, 5.0);
+    cam.vup = Vec3::new(0.0, 0.0, 1.0);
+    cam.defocus_angle = 0.0;
+    // cam.focus_dist = (Point3::new(80.0, 50.0, 300.0) - Point3::new(0.0, 20.0, 0.0)).length();
+    cam.render(&world);
+}
 fn main() {
-    let scene_id = 9;
+    let scene_id = 10;
 
     match scene_id {
         1 => bouncing_spheres(),
@@ -627,6 +666,7 @@ fn main() {
         7 => cornell_box(),
         8 => cornell_smoke(),
         9 => final_scene(800, 10000, 40),
+        10 => Manhattanhenge(),
         _ => final_scene(400, 250, 4),
     }
 }

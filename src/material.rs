@@ -68,14 +68,20 @@ impl Material for Lambertian {
 }
 // Metal  （镜面反射）
 pub struct Metal {
-    pub albedo: Color,
+    pub albedo: Arc<dyn Texture + Send + Sync>,
     pub fuzz: f64,
 }
 
 impl Metal {
     pub fn new(a: Color, f: f64) -> Self {
         Self {
-            albedo: a,
+            albedo: Arc::new(SolidColor::new(a)),
+            fuzz: f.min(1.0),
+        }
+    }
+    pub fn new_from_texture(texture: Arc<dyn Texture + Send + Sync>, f: f64) -> Self {
+        Self {
+            albedo: texture,
             fuzz: f.min(1.0),
         }
     }
@@ -92,7 +98,7 @@ impl Material for Metal {
         let mut reflected = vec3::reflect(r_in.direction(), rec.normal);
         reflected = Vec3::unit_vector(&reflected) + self.fuzz * vec3::random_in_unit_sphere();
         *scattered = Ray::new(rec.p, reflected, r_in.time());
-        *attenuation = self.albedo;
+        *attenuation = self.albedo.value(rec.u, rec.v, &rec.p);
         vec3::dot(scattered.direction(), rec.normal) > 0.0
     }
 }
